@@ -23,6 +23,7 @@ st.markdown("""
         body, .stApp { background-color: #ffffff !important; }
         /* Garantir que contêiner principal também use fundo branco */
         .block-container, .main, .css-1outpf7, .css-18e3th9 { background-color: #ffffff !important; }
+        h1, h2, h3, .stHeader, [data-testid="stHeader"] { color: #000000; }
         .rainguard-title { font-family: 'Inter', sans-serif; font-size: 3.4rem; font-weight: 800; text-align: center; margin: 18px 0 6px; letter-spacing: 1.8px; color: #0d3b66; }
         .rain-word { color: #ffffff; background: linear-gradient(90deg,#0d3b66 0%, #1f4e7f 100%); padding: 6px 12px; border-radius: 6px; margin-right:6px; }
         .guard-word { color: #0d3b66; }
@@ -32,7 +33,7 @@ st.markdown("""
         .stat-number{ font-size:2.4em; font-weight:800; margin:10px 0; letter-spacing: -0.02em; }
         .stat-label{ font-size:1.05em; opacity:0.84; letter-spacing:0.3px; }
         .legend-box{ background: rgba(255,255,255,0.92); padding:18px; border-radius:16px; margin-top:10px; border:1px solid rgba(15,40,75,0.08); box-shadow:0 14px 26px rgba(15,40,75,0.06); }
-        .legend-item{ margin:12px 0; font-weight:600; font-size:1.05em; }
+        .legend-item{ margin:12px 0; font-weight:600; font-size:1.05em; color: #000000; }
         .credit-section { background: rgba(255,255,255,0.92); padding: 26px; border-radius: 18px; box-shadow: 0 16px 34px rgba(15,40,75,0.08); border:1px solid rgba(15,40,75,0.08); }
         .credit-heading { font-family: 'Inter', sans-serif; font-size: 1.75rem; font-weight: 700; color: #0d3b66; margin-bottom: 14px; }
         .credit-text { font-family: 'Inter', sans-serif; font-size: 1.03rem; line-height: 1.75; color: #33475b; }
@@ -41,7 +42,7 @@ st.markdown("""
         .credit-list li { margin-bottom: 12px; }
         .credit-list li code { font-size: 0.95rem; background: rgba(16,55,92,0.06); padding: 2px 6px; border-radius: 6px; }
         .leaflet-container, .folium-map, iframe { border-radius:16px; }
-        .stMetric, [data-testid="stMetric"] { border-radius:14px; padding:10px; background: rgba(255,255,255,0.92); box-shadow:0 14px 26px rgba(15,40,75,0.06); }
+        .stMetric, [data-testid="stMetric"] { border-radius:14px; padding:10px; background: rgba(255,255,255,0.92); box-shadow:0 14px 26px rgba(15,40,75,0.06); color: #000000; }
         .stButton>button, button { border-radius:12px; background-color:#0d3b66; color:white; border:none; padding:10px 14px; }
     </style>
     
