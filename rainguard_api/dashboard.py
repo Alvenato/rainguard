@@ -20,29 +20,65 @@ st.set_page_config(page_title="RainGuard", layout="wide")
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        /* Cores de fundo e texto global */
         body, .stApp { background-color: #ffffff !important; }
-        /* Garantir que contêiner principal também use fundo branco */
         .block-container, .main, .css-1outpf7, .css-18e3th9 { background-color: #ffffff !important; }
-        h1, h2, h3, .stHeader, [data-testid="stHeader"] { color: #000000; }
+        p, div, span, label, li, td, th { color: #000000 !important; }
+        h1, h2, h3, h4, h5, h6, .stHeader, [data-testid="stHeader"] { color: #000000 !important; }
+        
+        /* Abas (tabs) */
+        .stTabs [data-baseweb="tab-list"] button, .stTabs [role="tab"] { color: #000000 !important; }
+        [data-testid="stTabs"] { color: #000000 !important; }
+        
+        /* Input fields, select, multiselect */
+        input, select, textarea, [data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stMultiSelect"] { color: #000000 !important; }
+        
+        /* Checkboxes, radios, sliders */
+        [data-testid="stCheckbox"], [data-testid="stRadio"], [data-testid="stSlider"] { color: #000000 !important; }
+        label { color: #000000 !important; }
+        
+        /* Expandable sections */
+        [data-testid="stExpander"] { color: #000000 !important; }
+        
+        /* Captions */
+        .caption, [data-testid="stCaption"] { color: #000000 !important; }
+        
+        /* Tabelas */
+        table, [data-testid="stDataFrame"] { color: #000000 !important; }
+        
+        /* Rainguard custom */
         .rainguard-title { font-family: 'Inter', sans-serif; font-size: 3.4rem; font-weight: 800; text-align: center; margin: 18px 0 6px; letter-spacing: 1.8px; color: #0d3b66; }
         .rain-word { color: #ffffff; background: linear-gradient(90deg,#0d3b66 0%, #1f4e7f 100%); padding: 6px 12px; border-radius: 6px; margin-right:6px; }
         .guard-word { color: #0d3b66; }
         .title-text { display: block; text-transform: uppercase; font-size: 1.05rem; letter-spacing: 4px; color: #1f4e7f; margin-top: 8px; text-align:center; }
+        
+        /* Stats e cards */
         .stats-container{ display:flex; flex-wrap:wrap; justify-content:space-between; margin:28px 0; gap:18px; }
-        .stat-card{ background: rgba(255,255,255,0.92); color:#122740; padding:22px 20px; border-radius:18px; text-align:center; flex:1 1 220px; min-width:220px; box-shadow:0 18px 34px rgba(15,40,75,0.08); border:1px solid rgba(15,40,75,0.08); }
-        .stat-number{ font-size:2.4em; font-weight:800; margin:10px 0; letter-spacing: -0.02em; }
-        .stat-label{ font-size:1.05em; opacity:0.84; letter-spacing:0.3px; }
+        .stat-card{ background: rgba(255,255,255,0.92); color:#000000; padding:22px 20px; border-radius:18px; text-align:center; flex:1 1 220px; min-width:220px; box-shadow:0 18px 34px rgba(15,40,75,0.08); border:1px solid rgba(15,40,75,0.08); }
+        .stat-number{ font-size:2.4em; font-weight:800; margin:10px 0; letter-spacing: -0.02em; color: #000000; }
+        .stat-label{ font-size:1.05em; opacity:0.84; letter-spacing:0.3px; color: #000000; }
+        
+        /* Legenda */
         .legend-box{ background: rgba(255,255,255,0.92); padding:18px; border-radius:16px; margin-top:10px; border:1px solid rgba(15,40,75,0.08); box-shadow:0 14px 26px rgba(15,40,75,0.06); }
         .legend-item{ margin:12px 0; font-weight:600; font-size:1.05em; color: #000000; }
+        
+        /* Créditos */
         .credit-section { background: rgba(255,255,255,0.92); padding: 26px; border-radius: 18px; box-shadow: 0 16px 34px rgba(15,40,75,0.08); border:1px solid rgba(15,40,75,0.08); }
-        .credit-heading { font-family: 'Inter', sans-serif; font-size: 1.75rem; font-weight: 700; color: #0d3b66; margin-bottom: 14px; }
-        .credit-text { font-family: 'Inter', sans-serif; font-size: 1.03rem; line-height: 1.75; color: #33475b; }
-        .credit-text strong { color: #1f4e8a; }
-        .credit-list { margin-top: 18px; padding-left: 1.3rem; }
-        .credit-list li { margin-bottom: 12px; }
-        .credit-list li code { font-size: 0.95rem; background: rgba(16,55,92,0.06); padding: 2px 6px; border-radius: 6px; }
+        .credit-heading { font-family: 'Inter', sans-serif; font-size: 1.75rem; font-weight: 700; color: #000000; margin-bottom: 14px; }
+        .credit-text { font-family: 'Inter', sans-serif; font-size: 1.03rem; line-height: 1.75; color: #000000; }
+        .credit-text strong { color: #000000; }
+        .credit-list { margin-top: 18px; padding-left: 1.3rem; color: #000000; }
+        .credit-list li { margin-bottom: 12px; color: #000000; }
+        .credit-list li code { font-size: 0.95rem; background: rgba(16,55,92,0.06); padding: 2px 6px; border-radius: 6px; color: #000000; }
+        
+        /* Mapa */
         .leaflet-container, .folium-map, iframe { border-radius:16px; }
+        
+        /* Métricos */
         .stMetric, [data-testid="stMetric"] { border-radius:14px; padding:10px; background: rgba(255,255,255,0.92); box-shadow:0 14px 26px rgba(15,40,75,0.06); color: #000000; }
+        
+        /* Botões */
         .stButton>button, button { border-radius:12px; background-color:#0d3b66; color:white; border:none; padding:10px 14px; }
     </style>
     
