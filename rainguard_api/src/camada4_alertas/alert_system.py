@@ -83,45 +83,63 @@
 
 
 
+import os
+
+# --- DICIONÁRIO DE NÍVEIS QUE O DASHBOARD SOLICITA ---
+NIVEIS = {
+    "INFO": "🔵 [INFO]",
+    "ALERTA": "⚠️ [ALERTA]",
+    "PERIGO": "🚨 [PERIGO]"
+}
+
+# --- PROTEÇÃO PARA AMBIENTES EM NUVEM (STREAMLIT CLOUD) ---
+try:
+    import pywhatkit as kit
+    WHATSAPP_DISPONIVEL = True
+except (ImportError, ModuleNotFoundError):
+    WHATSAPP_DISPONIVEL = False
 
 
-
-import pywhatkit as kit
-import time
-
-def enviar_alerta_grupo_whatsapp(mensagem_texto):
+def emitir_alerta(nivel, mensagem_texto):
     """
-    Dispara alertas do Rainguard direto para o grupo de WhatsApp
-    utilizando automação via navegador.
+    Função principal de alertas do Rainguard. 
+    Se estiver local, envia para o WhatsApp. 
+    Se estiver na nuvem (Streamlit Cloud), simula o envio nos logs do servidor.
     """
-    # Seu ID de grupo extraído do link de convite
+    # Formata o texto final com o nível do alerta
+    prefixo = NIVEIS.get(nivel, "📢 [NOTIFICAÇÃO]")
+    texto_formatado = f"{prefixo} *RAINGUARD*\n\n{mensagem_texto}"
+
+    # Validação de ambiente Headless / Nuvem
+    if not WHATSAPP_DISPONIVEL:
+        print("\n⚠️ [Rainguard] Automação de WhatsApp não disponível neste ambiente (Headless/Nuvem).")
+        print(f"🖥️ [LOG DO SERVIDOR] Mensagem que seria enviada:\n{texto_formatado}\n")
+        return False
+
+    # ID do seu grupo do WhatsApp (extraído do seu link de convite)
     id_do_grupo = "E4sHQ4uQa281FouDjAw1Mw" 
     
     try:
-        print("\n🔄 [Rainguard] Abrindo o WhatsApp Web e preparando o envio...")
+        print(f"\n🔄 [Rainguard] Ambiente local detectado. Abrindo o WhatsApp Web para nível: {nivel}...")
         
-        # Envia a mensagem instantaneamente. 
-        # wait_time=15 dá tempo do navegador abrir e carregar o chat do grupo.
-        # tab_close=True fecha a aba do navegador automaticamente após o envio.
+        # Executa a automação local abrindo o navegador padrão logado
         kit.sendwhatmsg_to_group_instantly(
             group_id=id_do_grupo,
-            message=mensagem_texto,
+            message=texto_formatado,
             wait_time=15,
             tab_close=True
         )
         
-        print("✅ [Rainguard] Alerta enviado ao grupo com sucesso!")
+        print("✅ [Rainguard] Alerta enviado ao grupo do WhatsApp com sucesso!")
         return True
         
     except Exception as e:
-        print(f"❌ [Rainguard] Falha ao tentar enviar mensagem: {e}")
+        print(f"❌ [Rainguard] Falha na automação local do WhatsApp: {e}")
         return False
 
-# --- TESTE ISOLADO DO SCRIPT ---
+
+# --- BLOCO DE TESTE INTERNO ---
 if __name__ == "__main__":
-    texto_teste = (
-        "🌧️ *ALERTA RAINGUARD*\n\n"
-        "Atenção: Sistema de monitoramento online. Modelos analíticos "
-        "reconfigurados com sucesso para alertas em grupo!"
-    )
-    enviar_alerta_grupo_whatsapp(texto_teste)
+    # Teste rápido simulando o comportamento da IA
+    msg_teste = "Modelos analíticos atualizados. Monitoramento pluviométrico operando em estabilidade."
+    emitir_alerta("INFO", msg_teste)
