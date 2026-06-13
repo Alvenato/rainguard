@@ -86,53 +86,8 @@ st.markdown("""
     <div class="title-text">SISTEMA INTELIGENTE DE PREVISÃO E ALERTA DE ENCHENTES</div>
 """, unsafe_allow_html=True)
 
+# Processamento inicial dos dados via Pipeline
 df = agrupar_regioes(engenharia_atributos(limpar_dados(carregar_dados_simulados())))
-
-DAILY_ALERT_FILE = Path(__file__).resolve().parent / ".daily_alert_status.json"
-
-def load_last_daily_alert():
-    if DAILY_ALERT_FILE.exists():
-        try:
-            payload = json.loads(DAILY_ALERT_FILE.read_text(encoding="utf-8"))
-            return payload.get("last_sent")
-        except Exception:
-            return None
-    return None
-
-
-def save_last_daily_alert(timestamp: str):
-    try:
-        DAILY_ALERT_FILE.write_text(json.dumps({"last_sent": timestamp}), encoding="utf-8")
-    except Exception:
-        pass
-
-
-def should_send_daily_alert():
-    last_sent = load_last_daily_alert()
-    if not last_sent:
-        return True
-    try:
-        last_dt = datetime.fromisoformat(last_sent)
-    except Exception:
-        return True
-    return last_dt.date() != date.today()
-
-
-def get_daily_alert_status():
-    last_sent = load_last_daily_alert()
-    if not last_sent:
-        return "Ainda não enviado"
-
-    try:
-        last_dt = datetime.fromisoformat(last_sent)
-        if last_dt.date() == date.today():
-            return f"✅ Enviado hoje ({last_dt.strftime('%d/%m/%Y %H:%M:%S')})"
-        return f"Último envio: {last_dt.strftime('%d/%m/%Y %H:%M:%S')}"
-    except Exception:
-        if last_sent == date.today().isoformat():
-            return f"✅ Enviado hoje ({last_sent})"
-        return f"Último envio: {last_sent}"
-
 
 # Criar coluna `local` legível a partir da latitude/longitude
 import_types = False
@@ -161,13 +116,13 @@ else:
     st.warning("Biblioteca 'reverse_geocoder' não encontrada. 'local' contém coordenadas. Para nomes reais, instale: pip install reverse_geocoder")
 
 
-# Calcular estatísticas
+# Calcular estatísticas volumétricas dos Clusters do K-means
 stats_critico = len(df[df["cluster_label"] == "Risco Crítico"])
 stats_alto = len(df[df["cluster_label"] == "Risco Alto"])
 stats_medio = len(df[df["cluster_label"] == "Risco Médio"])
 stats_baixo = len(df[df["cluster_label"] == "Risco Baixo"])
 
-# Exibir estatísticas
+# Exibir estatísticas nos Cards Superiores
 st.markdown("""
     <div class="stats-container">
         <div class="stat-card" style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);">
@@ -210,8 +165,8 @@ with tab1:
             <div class="legend-box">
                 <div class="legend-item" style="color: red;">🔴 Risco Crítico</div>
                 <div class="legend-item" style="color: orange;">🟠 Risco Alto</div>
-                    <div class="legend-item" style="color: black;">🟡 Risco Médio</div>
-                    <div class="legend-item" style="color: black;">🟢 Risco Baixo</div>
+                <div class="legend-item" style="color: black;">🟡 Risco Médio</div>
+                <div class="legend-item" style="color: black;">🟢 Risco Baixo</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -222,7 +177,7 @@ with tab1:
         st.metric("Nível Médio do Rio", f"{df['nivel_rio'].mean():.1f}m")
 
     with col2:
-        # Criar mapa base vazio (adicionaremos camadas)
+        # Criar mapa base vazio
         mapa = folium.Map(
             location=[-23.0, -46.8],
             zoom_start=8,
@@ -270,7 +225,7 @@ with tab1:
             lat = row['latitude']
             lon = row['longitude']
             color = cor_map.get(row['cluster_label'], 'blue')
-            # escala de raio baseada na precipitação (visual)
+            
             try:
                 radius = 6 + (float(row['precipitacao']) / max_prec) * 18
             except Exception:
@@ -293,10 +248,9 @@ with tab1:
                 tooltip=tooltip
             ).add_to(marker_cluster)
 
-        # Adicionar controle de camadas visível
         folium.LayerControl(collapsed=False).add_to(mapa)
 
-        # Ajustar bounds para focar nos pontos (se houver dados)
+        # Ajustar bounds para focar nos pontos automaticamente
         try:
             sw = [float(df['latitude'].min()), float(df['longitude'].min())]
             ne = [float(df['latitude'].max()), float(df['longitude'].max())]
@@ -309,10 +263,10 @@ with tab1:
 with tab2:
     st.subheader("📋 Análise Detalhada por Região")
     
-    # Preparar dados para Altair
     chart_df = df[["local", "cluster_label", "precipitacao", "nivel_rio", "umidade", "latitude", "longitude"]].copy()
     chart_df["precipitacao"] = chart_df["precipitacao"].astype(float)
-    # --- Controles de filtro ---
+    
+    # Controles de filtro do Dataframe
     clusters = chart_df['cluster_label'].unique().tolist()
     selected_clusters = st.multiselect("Filtrar por nível de risco:", clusters, default=clusters)
     min_p = float(chart_df['precipitacao'].min())
@@ -320,7 +274,7 @@ with tab2:
     precip_range = st.slider("Faixa de precipitação (mm):", min_value=min_p, max_value=max_p, value=(min_p, max_p))
     search_city = st.text_input("Buscar por cidade (nome ou parte):")
 
-    # Aplicar filtros
+    # Aplicar filtros dinâmicos
     filtered = chart_df[
         (chart_df['cluster_label'].isin(selected_clusters)) &
         (chart_df['precipitacao'] >= precip_range[0]) &
@@ -329,11 +283,10 @@ with tab2:
     if search_city:
         filtered = filtered[filtered['local'].str.contains(search_city, case=False, na=False)]
 
-    # Layout dos gráficos organizados
+    # Layout de Gráficos Altair
     overview_col, map_col = st.columns([1.2, 1])
 
     with overview_col:
-        # colocar barra e histograma lado a lado para melhor comparação
         left, right = st.columns(2)
         with left:
             st.write("**Distribuição de Riscos (filtrada)**")
@@ -357,7 +310,6 @@ with tab2:
             st.altair_chart(hist, width='stretch')
             st.markdown('**Método:** Estatística descritiva (dados brutos)')
 
-    # mapa de dispersão em largura completa abaixo dos resumos
     st.write('**Mapa de Precipitação (dispersão)**')
     scatter = alt.Chart(filtered).mark_circle(opacity=0.75).encode(
         x='longitude:Q',
@@ -369,7 +321,6 @@ with tab2:
     st.altair_chart(scatter, width='stretch')
     st.markdown('**Método:** k-means (clusters) — visualização geoespacial')
 
-    # Estatísticas resumidas do conjunto filtrado
     st.markdown('**Estatísticas (filtradas)**')
     stats_data = {
         'Métrica': ['Precipitação Mín', 'Precipitação Máx', 'Precipitação Média', 'Rio Mín', 'Rio Máx', 'Regiões Filtradas'],
@@ -384,27 +335,20 @@ with tab2:
     }
     st.dataframe(pd.DataFrame(stats_data), width='stretch')
 
-    # Tabela filtrada em expander
     st.divider()
     with st.expander('Tabela (dados filtrados) - mostrar/ocultar'):
         st.dataframe(filtered[['local', 'cluster_label', 'precipitacao', 'nivel_rio', 'umidade', 'latitude', 'longitude']], width='stretch')
 
 with tab3:
     st.subheader("🚨 Disparar Alerta via WhatsApp")
-    
-    auto_send_daily = st.checkbox(
-        "📅 Ativar envio automático diário",
-        value=False,
-        help="Quando ativado, envia automaticamente uma vez por dia para a região selecionada."
-    )
-    st.caption(get_daily_alert_status())
+    st.caption("O disparo automático foi desativado. Selecione a região abaixo e clique no botão para efetuar o envio manual imediato.")
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.write("**Selecione a Região**")
         
-        # Converter regiões únicas para lista de strings com nomes de cidade
+        # Obter regiões mapeadas para alimentar a seleção
         regioes_unicas = df[["local", "latitude", "longitude"]].drop_duplicates().reset_index(drop=True)
         opcoes_regiao = [f"{row['local']} ({row['latitude']:.2f}, {row['longitude']:.2f})" for _, row in regioes_unicas.iterrows()]
         
@@ -415,16 +359,14 @@ with tab3:
             key="regiao_select"
         )
         
-        # Recuperar coordenadas e nome selecionados
         regiao_info = regioes_unicas.iloc[indice_regiao]
         
         st.write("**Nível de alerta definido automaticamente**")
-        st.caption("O nível de alerta é calculado automaticamente a partir do risco da região selecionada.")
+        st.caption("O nível do alerta baseia-se na classificação inferida pelo algoritmo K-means.")
     
     with col2:
         st.write("**Dados da Região Selecionada**")
         
-        # Encontrar dados da região selecionada
         regiao_dados = df[
             (df["latitude"] == regiao_info["latitude"]) &
             (df["longitude"] == regiao_info["longitude"])
@@ -434,15 +376,17 @@ with tab3:
             row = regiao_dados.iloc[0]
             alert_level = cluster_to_alert_level.get(row['cluster_label'], 'Verde')
             alert_info = NIVEIS.get(alert_level, NIVEIS['Verde'])
+            
             st.metric("Precipitação", f"{row['precipitacao']:.1f}mm")
             st.metric("Nível do Rio", f"{row['nivel_rio']:.1f}m")
             st.metric("Umidade", f"{row['umidade']:.0f}%")
-            # Painel visual para o nível de alerta (destacado) com contraste adequado
+            
+            # Painel visual colorido do nível de risco atualizado
             bg_color = cor_map.get(row['cluster_label'], 'green')
             text_color = 'black' if bg_color in ('yellow', '#DAA520', '#FFD700', 'lightyellow') else 'white'
             st.markdown(
                 f"""
-                <div style="background: {bg_color}; padding: 12px; border-radius: 8px; color: {text_color};">
+                <div style="background: {bg_color}; padding: 12px; border-radius: 8px; color: {text_color}; margin-bottom: 15px;">
                     <div style="display:flex; align-items:center; gap:12px;">
                         <div style="font-size:28px; font-weight:700;">{alert_info['cor']}</div>
                         <div>
@@ -454,37 +398,36 @@ with tab3:
                 """,
                 unsafe_allow_html=True
             )
-            # (Cadastro de WhatsApp removido)
-    
-    if auto_send_daily:
-        if not regiao_dados.empty:
-            if should_send_daily_alert():
-                row = regiao_dados.iloc[0]
-                dados_alerta = {
-                    "precipitacao": row["precipitacao"],
-                    "nivel_rio": row["nivel_rio"],
-                    "umidade": row["umidade"]
-                }
-                try:
-                    with st.spinner("📤 Enviando alerta diário automaticamente..."):
-                        alert_level = cluster_to_alert_level.get(row['cluster_label'], 'Verde')
-                        mensagem = emitir_alerta(
-                            regiao_id=f"{row['local']} ({regiao_info['latitude']:.4f}, {regiao_info['longitude']:.4f})",
-                            nivel=alert_level,
-                            dados=dados_alerta
-                        )
-                        save_last_daily_alert(datetime.now().isoformat())
-                    st.success("✅ Alerta diário enviado com sucesso!")
-                    st.info(f"**Mensagem enviada:**\n\n{mensagem}")
-                except Exception as e:
-                    st.error(f"❌ Erro ao enviar alerta diário: {str(e)}")
-            else:
-                st.info("✅ O alerta diário já foi enviado hoje.")
-        else:
-            st.warning("⚠️ Selecione uma região válida para o envio automático diário.")
-    
+            
     st.divider()
-    st.info("📅 O alerta agora é enviado automaticamente uma vez por dia para a região selecionada.")
+
+    # --- DISPARO MANUAL ATRAVÉS DE BOTÃO ---
+    if not regiao_dados.empty:
+        row = regiao_dados.iloc[0]
+        alert_level = cluster_to_alert_level.get(row['cluster_label'], 'Verde')
+        
+        # String dinâmica que muda o rótulo conforme seleção da região
+        botao_texto = f"Disparar Alerta {alert_level.upper()} para {row['local']}"
+        
+        if st.button(f"🚀 {botao_texto}", use_container_width=True):
+            dados_alerta = {
+                "precipitacao": row["precipitacao"],
+                "nivel_rio": row["nivel_rio"],
+                "umidade": row["umidade"]
+            }
+            try:
+                with st.spinner("📤 Conectando à API do Twilio e transmitindo mensagens para os destinatários..."):
+                    mensagem = emitir_alerta(
+                        regiao_id=f"{row['local']} ({regiao_info['latitude']:.4f}, {regiao_info['longitude']:.4f})",
+                        nivel=alert_level,
+                        dados=dados_alerta
+                    )
+                st.success(f"✅ Alerta enviado com sucesso para a lista de destinatários configurada!")
+                st.info(f"**Conteúdo da mensagem enviada:**\n\n{mensagem}")
+            except Exception as e:
+                st.error(f"❌ Erro ao executar o disparo: {str(e)}")
+    else:
+        st.warning("⚠️ Selecione uma região válida para habilitar o botão de disparo.")
 
 with tab4:
     st.title("🧾 Créditos")
@@ -509,7 +452,7 @@ with tab4:
                 <li>Identifica com antecedência as regiões mais vulneráveis a enchentes.</li>
                 <li>Permite análise comparativa entre diferentes áreas e condições climáticas.</li>
                 <li>Oferece monitoramento de indicadores-chave (precipitação, umidade e nível do rio).</li>
-                <li>Automatiza o envio diário de alertas para a região selecionada.</li>
+                <li>Elimina disparos falsos e automatizados indesejados através de controle por clique manual.</li>
                 <li>Facilita a tomada de decisão rápida com uma interface clara e interativa.</li>
             </ul>
         </div>
