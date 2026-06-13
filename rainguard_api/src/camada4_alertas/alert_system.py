@@ -31,7 +31,8 @@ DESTINATARIOS = [
     "whatsapp:+556181830780",
     "whatsapp:+556199445562",
     "whatsapp:+556199655321",
-    "whatsapp:+556182417170"
+    "whatsapp:+556182417170",
+    "whatsapp:+556181515868"
 ]
 
 NIVEIS = {
