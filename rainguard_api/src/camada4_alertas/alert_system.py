@@ -82,11 +82,15 @@
 
 
 
-
 import os
 
 # --- DICIONÁRIO DE NÍVEIS QUE O DASHBOARD SOLICITA ---
+# Atualizado para conter 'Verde' e outras cores padrão de monitoramento
 NIVEIS = {
+    "Verde": "🟢 [ESTÁVEL]",
+    "Amarelo": "🟡 [ATENÇÃO]",
+    "Laranja": "🟠 [ALERTA]",
+    "Vermelho": "🔴 [PERIGO]",
     "INFO": "🔵 [INFO]",
     "ALERTA": "⚠️ [ALERTA]",
     "PERIGO": "🚨 [PERIGO]"
@@ -140,6 +144,5 @@ def emitir_alerta(nivel, mensagem_texto):
 
 # --- BLOCO DE TESTE INTERNO ---
 if __name__ == "__main__":
-    # Teste rápido simulando o comportamento da IA
-    msg_teste = "Modelos analíticos atualizados. Monitoramento pluviométrico operando em estabilidade."
-    emitir_alerta("INFO", msg_teste)
+    msg_teste = "Modelos analíticos atualizados. Monitoramento operando em estabilidade."
+    emitir_alerta("Verde", msg_teste)
