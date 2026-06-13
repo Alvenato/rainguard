@@ -12,8 +12,6 @@ import altair as alt
 import json
 from datetime import date, datetime
 from pathlib import Path
-import sys
-import os
 
 # Adiciona a pasta atual ao caminho de busca do Python
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
