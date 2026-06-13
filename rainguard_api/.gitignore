@@ -19,3 +19,6 @@ venv/
 
 # MacOS files
 .DS_Store
+
+# Configurações locais de contatos
+.whatsapp_contacts.json
