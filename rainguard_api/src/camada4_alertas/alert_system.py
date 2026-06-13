@@ -16,7 +16,7 @@ except ImportError:
     logger.warning("Biblioteca 'twilio' não encontrada. Alertas WhatsApp estarão desativados.")
 
 # Configurações da API
-account_sid = os.getenv("TWILIO_ACCOUNT_SID", "AC2997f388cd052e65d40263836a6b6b57") 
+account_sid = os.getenv("TWILIO_ACCOUNT_SID", "AC2997f388cd052e65d40263836a6b6b57")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN", "0a311ebe0d6723eeb1bd2e68076fe5f2")
 
 client = None
