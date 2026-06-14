@@ -528,7 +528,6 @@
 #     </div>
 #     """, unsafe_allow_html=True)
 
-
 # dashboard.py
 import streamlit as st
 import pandas as pd
@@ -904,30 +903,36 @@ with tab5:
     st.markdown("<br>", unsafe_allow_html=True)
     st.write("**Gráfico de Dispersão Espacial (Sua Situação Atual vs. Padrões Históricos)**")
     
-    df_plot_live = df[["precipitacao", "nivel_rio", "cluster_label"]].copy()
-    df_plot_live['Tipo'] = 'Histórico (Modelos)'
-    
-    ponto_ao_vivo = pd.DataFrame([{
-        "precipitacao": live_p,
-        "nivel_rio": live_r,
-        "cluster_label": risco_detectado,
-        "Tipo": "⚠️ AGORA (Tempo Real)"
-    }])
-    df_consolidado_grafico = pd.concat([df_plot_live, ponto_ao_vivo], ignore_index=True)
-
-    # --- SINTAXE CORRIGIDA DE FORMA ROBUSTA AQUI ---
-    # Usando alt.expr() para envelopar explicitamente a avaliação lógica e evitar o AttributeError
-    condition_expr = alt.expr("datum.Tipo == '⚠️ AGORA (Tempo Real)'")
-    
-    grafico_inferencia = alt.Chart(df_consolidado_grafico).mark_circle().encode(
+    # -------------------------------------------------------------
+    # SOLUÇÃO DEFINITIVA SEM ERROS DE COMPATIBILIDADE (SINTAXE DE CAMADAS)
+    # -------------------------------------------------------------
+    # Camada 1: O histórico completo de 500 registros como pontos cinzentos de fundo
+    grafico_historico = alt.Chart(df).mark_circle(size=60, color='#CCCCCC').encode(
         x=alt.X('precipitacao:Q', title='Precipitação acumulada (mm)'),
         y=alt.Y('nivel_rio:Q', title='Nível da Calha do Rio (m)'),
-        color=alt.Color('Tipo:N', scale=alt.Scale(domain=['Histórico (Modelos)', '⚠️ AGORA (Tempo Real)'], range=['#CCCCCC', '#FF0055'])),
-        size=alt.Condition(condition_expr, alt.value(400), alt.value(60)),
         tooltip=['precipitacao', 'nivel_rio', 'cluster_label']
-    ).properties(height=400, width='stretch').configure_axis(grid=True)
+    )
     
-    st.altair_chart(grafico_inferencia, use_container_width=True)
+    # Criamos um DataFrame estrito de apenas 1 linha para o marcador em tempo real
+    df_ponto_hoje = pd.DataFrame([{
+        "precipitacao": float(live_p),
+        "nivel_rio": float(live_r)
+    }])
+    
+    # Camada 2: O ponto do sensor IoT em tempo real como uma bola vermelha grande em destaque
+    grafico_agora = alt.Chart(df_ponto_hoje).mark_circle(size=450, color='#FF0055').encode(
+        x='precipitacao:Q',
+        y='nivel_rio:Q'
+    )
+    
+    # Unificamos as camadas através do operador de soma (+) nativo do Altair
+    grafico_final = (grafico_historico + grafico_agora).properties(
+        height=400, 
+        width='stretch'
+    ).configure_axis(grid=True)
+    
+    st.altair_chart(grafico_final, use_container_width=True)
+    # -------------------------------------------------------------
 
     if simular_ativado:
         time.sleep(1.5)
