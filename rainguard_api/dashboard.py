@@ -842,7 +842,7 @@ with tab3:
         except Exception as e: st.error(f"Erro: {e}")
 
 # ==========================================
-# ABA: MONITORAMENTO EM TEMPO REAL VS MODELO DE HISTÓRICO (CORRIGIDA)
+# ABA: MONITORAMENTO EM TEMPO REAL VS MODELO DE HISTÓRICO
 # ==========================================
 with tab5:
     st.subheader("🌤️ Telemetria Climática em Tempo Real vs. Inteligência de Modelos")
@@ -915,13 +915,15 @@ with tab5:
     }])
     df_consolidado_grafico = pd.concat([df_plot_live, ponto_ao_vivo], ignore_index=True)
 
-    # --- CORREÇÃO DO ERRO AQUI ---
-    # Usando string de expressão pura do Vega-Lite avaliada em tempo de execução pelo interpretador JS do chart
+    # --- SINTAXE CORRIGIDA DE FORMA ROBUSTA AQUI ---
+    # Usando alt.expr() para envelopar explicitamente a avaliação lógica e evitar o AttributeError
+    condition_expr = alt.expr("datum.Tipo == '⚠️ AGORA (Tempo Real)'")
+    
     grafico_inferencia = alt.Chart(df_consolidado_grafico).mark_circle().encode(
         x=alt.X('precipitacao:Q', title='Precipitação acumulada (mm)'),
         y=alt.Y('nivel_rio:Q', title='Nível da Calha do Rio (m)'),
         color=alt.Color('Tipo:N', scale=alt.Scale(domain=['Histórico (Modelos)', '⚠️ AGORA (Tempo Real)'], range=['#CCCCCC', '#FF0055'])),
-        size=alt.Condition("datum.Tipo == '⚠️ AGORA (Tempo Real)'", alt.value(400), alt.value(60)),
+        size=alt.Condition(condition_expr, alt.value(400), alt.value(60)),
         tooltip=['precipitacao', 'nivel_rio', 'cluster_label']
     ).properties(height=400, width='stretch').configure_axis(grid=True)
     
