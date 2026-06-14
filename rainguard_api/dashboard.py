@@ -527,6 +527,9 @@
 #         </div>
 #     </div>
 #     """, unsafe_allow_html=True)
+
+
+
 import streamlit as st
 import pandas as pd
 import folium
@@ -542,73 +545,78 @@ import requests
 import sys
 import os
 
-# Configuração inicial
+# Configuração e Caminhos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 st.set_page_config(page_title="RainGuard", layout="wide")
 
-# Inicialização do estado para monitoramento real
+# Inicialização de Estado para Dados Reais
 if 'live_p' not in st.session_state:
     st.session_state.live_p = None
     st.session_state.live_r = None
     st.session_state.live_u = None
-    st.session_state.risco_detectado = None
+    st.session_state.risco_label = None
 
-# Pipeline de dados
+# Pipeline de Processamento
 df = agrupar_regioes(engenharia_atributos(limpar_dados(carregar_dados_simulados())))
 df['local'] = df.apply(lambda r: f"Região ({r['latitude']:.4f}, {r['longitude']:.4f})", axis=1)
 
-# CSS e Estilização
+# CSS Customizado
 st.markdown("""
     <style>
-        .rainguard-title { font-family: 'Inter', sans-serif; font-size: 3.4rem; font-weight: 800; text-align: center; color: #0d3b66; }
-        .stat-card{ background: #f8f9fa; padding:20px; border-radius:15px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-        .stat-number{ font-size:2.2rem; font-weight:800; }
+        .rainguard-title { font-size: 3rem; font-weight: 800; color: #0d3b66; text-align: center; }
+        .stat-card { background: white; padding: 20px; border-radius: 15px; border: 1px solid #ddd; text-align: center; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="rainguard-title">RAIN<span>GUARD</span></div>', unsafe_allow_html=True)
+# Título
+st.markdown('<div class="rainguard-title">RAIN GUARD</div>', unsafe_allow_html=True)
 
-# Lógica dos Cards (Dinâmicos: exibem tempo real se disponível)
-col1, col2, col3, col4 = st.columns(4)
+# --- BLOCO DOS CARDS SUPERIORES ---
+st.write("---")
+c1, c2, c3, c4 = st.columns(4)
 
 if st.session_state.live_p is not None:
-    # Exibe dados coletados pela API
-    col1.metric("Precipitação Real", f"{st.session_state.live_p:.1f} mm")
-    col2.metric("Nível do Rio (Inferido)", f"{st.session_state.live_r:.1f} m")
-    col3.metric("Umidade", f"{st.session_state.live_u:.0f}%")
-    col4.metric("Diagnóstico", st.session_state.risco_detectado)
+    c1.metric("Precipitação Real", f"{st.session_state.live_p:.1f} mm")
+    c2.metric("Nível do Rio", f"{st.session_state.live_r:.1f} m")
+    c3.metric("Umidade", f"{st.session_state.live_u:.0f}%")
+    c4.metric("Diagnóstico Atual", st.session_state.risco_label)
 else:
-    # Exibe histórico se nenhuma consulta foi feita
-    col1.metric("Risco Crítico", len(df[df["cluster_label"] == "Risco Crítico"]))
-    col2.metric("Risco Alto", len(df[df["cluster_label"] == "Risco Alto"]))
-    col3.metric("Risco Médio", len(df[df["cluster_label"] == "Risco Médio"]))
-    col4.metric("Risco Baixo", len(df[df["cluster_label"] == "Risco Baixo"]))
+    c1.metric("Risco Crítico", len(df[df["cluster_label"] == "Risco Crítico"]))
+    c2.metric("Risco Alto", len(df[df["cluster_label"] == "Risco Alto"]))
+    c3.metric("Risco Médio", len(df[df["cluster_label"] == "Risco Médio"]))
+    c4.metric("Risco Baixo", len(df[df["cluster_label"] == "Risco Baixo"]))
+st.write("---")
 
-# Abas
-tab1, tab2, tab3, tab5 = st.tabs(["🗺️ Mapa", "📊 Dados", "🚨 Alertas", "🌤️ Tempo Real"])
+# --- ABAS ---
+tab1, tab2, tab5 = st.tabs(["🗺️ Mapa de Riscos", "📊 Dados Detalhados", "🌤️ Telemetria em Tempo Real"])
 
 with tab1:
+    st.subheader("Visualização Geográfica")
     mapa = folium.Map(location=[-23.0, -46.8], zoom_start=8)
     st_folium(mapa, width=1200, height=500)
 
+with tab2:
+    st.dataframe(df, use_container_width=True)
+
 with tab5:
-    st.subheader("Telemetria Real (Open-Meteo)")
+    st.subheader("Consulta de Sensores Meteorológicos")
     regioes = df[["local", "latitude", "longitude"]].drop_duplicates()
-    idx = st.selectbox("Selecione a Região:", range(len(regioes)), format_func=lambda x: regioes.iloc[x]['local'])
+    idx = st.selectbox("Escolha a Estação:", range(len(regioes)), format_func=lambda x: regioes.iloc[x]['local'])
     
-    if st.button("🔄 BUSCAR DADOS ATUAIS"):
+    # Botão compacto
+    if st.button("🛰️ CONSULTAR SENSORES"):
         r = regioes.iloc[idx]
         url = f"https://api.open-meteo.com/v1/forecast?latitude={r['latitude']}&longitude={r['longitude']}&current=precipitation,relative_humidity_2m"
-        data = requests.get(url).json()['current']
-        
-        st.session_state.live_p = float(data['precipitation'])
-        st.session_state.live_u = float(data['relative_humidity_2m'])
-        st.session_state.live_r = 1.2 + (st.session_state.live_p * 0.08)
-        
-        # Inferência simples
-        if st.session_state.live_p > 20: st.session_state.risco_detectado = "Crítico"
-        else: st.session_state.risco_detectado = "Normal"
-        
-        st.rerun()
-
-# Restante do código (tab2, tab3) permanece conforme sua estrutura original...
+        try:
+            resp = requests.get(url, timeout=5).json()
+            data = resp['current']
+            
+            # Atualiza Estado
+            st.session_state.live_p = float(data['precipitation'])
+            st.session_state.live_u = float(data['relative_humidity_2m'])
+            st.session_state.live_r = 1.2 + (st.session_state.live_p * 0.08)
+            st.session_state.risco_label = "Crítico" if st.session_state.live_p > 20 else "Estável"
+            
+            st.rerun()
+        except Exception as e:
+            st.error("Falha ao conectar com a API.")
