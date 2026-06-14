@@ -533,12 +533,10 @@ import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-from folium.plugins import MarkerCluster, MiniMap, Fullscreen, HeatMap
 from src.camada1_coleta.collectors import carregar_dados_simulados
 from src.camada2_processamento.preprocessing import limpar_dados, engenharia_atributos
 from src.camada3_ia.kmeans_clustering import agrupar_regioes
 from src.camada4_alertas.alert_system import emitir_alerta, NIVEIS
-import altair as alt
 import requests
 import sys
 import os
@@ -546,59 +544,65 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 st.set_page_config(page_title="RainGuard", layout="wide")
 
-# --- ESTADO PARA DADOS REAIS ---
+# Estado de sessão para dados em tempo real
 if 'live_p' not in st.session_state:
     st.session_state.live_p = None
     st.session_state.live_r = None
     st.session_state.live_u = None
 
-# --- CSS INTEGRADO ---
+# --- CSS INTEGRADO E TÍTULO ORIGINAL ---
 st.markdown("""
     <style>
-        .rainguard-title { font-family: 'Inter', sans-serif; font-size: 3.4rem; font-weight: 800; text-align: center; color: #0d3b66; }
+        .rainguard-title { font-family: 'Inter', sans-serif; font-size: 3.4rem; font-weight: 800; text-align: center; margin: 18px 0 6px; letter-spacing: 1.8px; color: #0d3b66; }
+        .rain-word { color: #ffffff; background: linear-gradient(90deg,#0d3b66 0%, #1f4e7f 100%); padding: 6px 12px; border-radius: 6px; margin-right:6px; }
+        .guard-word { color: #0d3b66; }
+        .title-text { display: block; text-transform: uppercase; font-size: 1.05rem; letter-spacing: 4px; color: #1f4e7f; margin-top: 8px; text-align:center; }
         .stats-container{ display:flex; flex-wrap:wrap; justify-content:space-between; margin:28px 0; gap:18px; }
-        .stat-card{ padding:22px 20px; border-radius:18px; text-align:center; flex:1 1 220px; box-shadow:0 18px 34px rgba(0,0,0,0.08); }
-        .stat-number{ font-size:2.4em; font-weight:800; margin:10px 0; }
+        .stat-card{ background: rgba(255,255,255,0.92); padding:22px 20px; border-radius:18px; text-align:center; flex:1 1 220px; box-shadow:0 18px 34px rgba(15,40,75,0.08); border:1px solid rgba(15,40,75,0.08); }
+        .stat-number{ font-size:2.4em; font-weight:800; margin:10px 0; color: #000000; }
         .legend-box{ background: white; padding:18px; border-radius:16px; border:1px solid #ddd; }
     </style>
 """, unsafe_allow_html=True)
+
+# Título e Subtítulo restaurados
+st.markdown('''
+    <div class="rainguard-title"><span class="rain-word">RAIN</span><span class="guard-word">GUARD</span></div>
+    <div class="title-text">SISTEMA INTELIGENTE DE PREVISÃO E ALERTA DE ENCHENTES</div>
+''', unsafe_allow_html=True)
 
 # Processamento
 df = agrupar_regioes(engenharia_atributos(limpar_dados(carregar_dados_simulados())))
 df['local'] = df.apply(lambda r: f"Região ({r['latitude']:.4f}, {r['longitude']:.4f})", axis=1)
 
-# --- TÍTULO ---
-st.markdown('<div class="rainguard-title">RAIN<span style="color:#1f4e7f">GUARD</span></div>', unsafe_allow_html=True)
-
-# --- CARDS (DYNAMICOS) ---
+# --- CARDS DE ESTATÍSTICAS ---
 if st.session_state.live_p is not None:
     st.markdown(f"""
     <div class="stats-container">
-        <div class="stat-card" style="background:#0d3b66; color:white;"><div class="stat-number">{st.session_state.live_p:.1f}mm</div><div>Precipitação Atual</div></div>
-        <div class="stat-card" style="background:#1f4e7f; color:white;"><div class="stat-number">{st.session_state.live_r:.1f}m</div><div>Nível do Rio</div></div>
-        <div class="stat-card" style="background:#f8f9fa;"><div class="stat-number">{st.session_state.live_u:.0f}%</div><div>Umidade</div></div>
-        <div class="stat-card" style="background:#f8f9fa;"><div class="stat-number">✅</div><div>Status Sensores</div></div>
+        <div class="stat-card" style="background:#0d3b66; color:white;"><div class="stat-number" style="color:white;">{st.session_state.live_p:.1f}mm</div><div>Precipitação Atual</div></div>
+        <div class="stat-card" style="background:#1f4e7f; color:white;"><div class="stat-number" style="color:white;">{st.session_state.live_r:.1f}m</div><div>Nível do Rio</div></div>
+        <div class="stat-card"><div class="stat-number">{st.session_state.live_u:.0f}%</div><div>Umidade</div></div>
+        <div class="stat-card"><div class="stat-number">✅</div><div>Status: Online</div></div>
     </div>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <div class="stats-container">
         <div class="stat-card" style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); color:white;">
-            <div class="stat-number">""" + str(len(df[df["cluster_label"] == "Risco Crítico"])) + """</div><div>🔴 Risco Crítico</div>
+            <div class="stat-number" style="color:white;">""" + str(len(df[df["cluster_label"] == "Risco Crítico"])) + """</div><div>🔴 Risco Crítico</div>
         </div>
         <div class="stat-card" style="background: linear-gradient(135deg, #FF9900 0%, #FF6600 100%); color:white;">
-            <div class="stat-number">""" + str(len(df[df["cluster_label"] == "Risco Alto"])) + """</div><div>🟠 Risco Alto</div>
+            <div class="stat-number" style="color:white;">""" + str(len(df[df["cluster_label"] == "Risco Alto"])) + """</div><div>🟠 Risco Alto</div>
         </div>
-        <div class="stat-card" style="background: #E6BE00;">
+        <div class="stat-card">
             <div class="stat-number">""" + str(len(df[df["cluster_label"] == "Risco Médio"])) + """</div><div>🟡 Risco Médio</div>
         </div>
-        <div class="stat-card" style="background: #4CAF50;">
+        <div class="stat-card">
             <div class="stat-number">""" + str(len(df[df["cluster_label"] == "Risco Baixo"])) + """</div><div>🟢 Risco Baixo</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-# --- TODAS AS ABAS RESTAURADAS ---
+# --- ABAS ---
 tab1, tab2, tab3, tab5, tab4 = st.tabs(["🗺️ Mapa de Riscos", "📊 Dados Detalhados", "🚨 Disparar Alerta", "🌤️ Clima em Tempo Real", "🧾 Créditos"])
 
 with tab1:
@@ -609,19 +613,11 @@ with tab1:
         mapa = folium.Map(location=[-23.0, -46.8], zoom_start=8)
         st_folium(mapa, width=1200, height=600)
 
-with tab2:
-    st.subheader("Dados Processados")
-    st.dataframe(df, use_container_width=True)
-
-with tab3:
-    st.info("Interface de alerta operacional.")
-    # Aqui você pode manter sua lógica de alerta original
-
 with tab5:
     st.subheader("Telemetria em Tempo Real")
     regioes = df[["local", "latitude", "longitude"]].drop_duplicates()
     idx = st.selectbox("Selecione a Região:", range(len(regioes)), format_func=lambda x: regioes.iloc[x]['local'])
-    if st.button("🛰️ ATUALIZAR DADOS"):
+    if st.button("🛰️ ATUALIZAR DADOS REAIS"):
         r = regioes.iloc[idx]
         url = f"https://api.open-meteo.com/v1/forecast?latitude={r['latitude']}&longitude={r['longitude']}&current=precipitation,relative_humidity_2m"
         data = requests.get(url, timeout=5).json()['current']
@@ -629,6 +625,3 @@ with tab5:
         st.session_state.live_u = float(data['relative_humidity_2m'])
         st.session_state.live_r = 1.2 + (st.session_state.live_p * 0.08)
         st.rerun()
-
-with tab4:
-    st.write("Créditos do projeto RainGuard.")
