@@ -557,7 +557,9 @@ st.set_page_config(page_title="RainGuard", layout="wide")
 # Inicializar estados de sessão para simulação de tempo real, se não existirem
 if "live_precip" not in st.session_state:
     st.session_state.live_precip = 45.0
+if "live_rio" not in st.session_state:
     st.session_state.live_rio = 2.1
+if "live_umi" not in st.session_state:
     st.session_state.live_umi = 78.0
 
 # CSS customizado para a interface
@@ -655,7 +657,7 @@ st.markdown("""
     <div class="title-text">SISTEMA INTELIGENTE DE PREVISÃO E ALERTA DE ENCHENTES</div>
 """, unsafe_allow_html=True)
 
-# Processamento inicial dos dados via Pipeline (Seus dados históricos estruturados)
+# Processamento inicial dos dados via Pipeline
 df = agrupar_regioes(engenharia_atributos(limpar_dados(carregar_dados_simulados())))
 
 # Criar coluna `local` legível a partir da latitude/longitude
@@ -679,8 +681,6 @@ if import_types:
 else:
     df = df.copy()
     df['local'] = df.apply(lambda r: f"Região ({r['latitude']:.4f}, {r['longitude']:.4f})", axis=1)
-    st.warning("Biblioteca 'reverse_geocoder' não encontrada. Usando coordenadas locais.")
-
 
 # Calcular estatísticas volumétricas dos Clusters do K-means
 stats_critico = len(df[df["cluster_label"] == "Risco Crítico"])
@@ -719,7 +719,7 @@ cluster_to_alert_level = {
     "Risco Baixo": "Verde"
 }
 
-# Criar abas para organizar o conteúdo incluindo a NOVA aba de Clima em Tempo Real
+# Criar abas para organizar o conteúdo
 tab1, tab2, tab3, tab5, tab4 = st.tabs([
     "🗺️ Mapa de Riscos", 
     "📊 Dados Detalhados", 
@@ -829,7 +829,6 @@ with tab3:
             text_color = 'black' if bg_color in ('yellow', 'lightyellow') else 'white'
             st.markdown(f'<div style="background: {bg_color}; padding: 16px; border-radius: 12px; color: {text_color}; margin-top: 10px;"><b>ALERTA {alert_level.upper()}</b> — {row["cluster_label"]}</div>', unsafe_allow_html=True)
 
-    # Injeção e disparo do botão
     btn_color_map = {"Vermelho": "#DC3545", "Laranja": "#FD7E14", "Amarelo": "#FFC107", "Verde": "#28A745"}
     b_color = btn_color_map.get(alert_level, "#0d3b66")
     st.markdown(f"<style>div.stButton > button {{ background-color: {b_color} !important; color: white !important; }}</style>", unsafe_allow_html=True)
@@ -843,25 +842,22 @@ with tab3:
         except Exception as e: st.error(f"Erro: {e}")
 
 # ==========================================
-# NOVA ABA: MONITORAMENTO EM TEMPO REAL VS MODELO DE HISTÓRICO
+# ABA: MONITORAMENTO EM TEMPO REAL VS MODELO DE HISTÓRICO (CORRIGIDA)
 # ==========================================
 with tab5:
     st.subheader("🌤️ Telemetria Climática em Tempo Real vs. Inteligência de Modelos")
-    st.caption("Esta tela monitora dados climáticos simulados ao vivo (via sensores IoT) e cruza instantaneamente com a base de conhecimento de 500 registros para classificar o risco sem latência.")
+    st.caption("Esta tela monitora dados climáticos simulados ao vivo (via sensores IoT) e cruza instantaneamente com a base de conhecimento para classificar o risco.")
 
-    # Simulação ativa de flutuação de sensores em tempo real
     simular_ativado = st.checkbox("🔄 Ativar recepção de dados via Sensores IoT (Simulação ao Vivo)", value=False)
     if simular_ativado:
         st.session_state.live_precip += np.random.uniform(-1.5, 2.0)
         st.session_state.live_rio += np.random.uniform(-0.05, 0.08)
         st.session_state.live_umi += np.random.uniform(-1.0, 1.0)
         
-        # Limites físicos aceitáveis
         st.session_state.live_precip = max(0.0, min(180.0, st.session_state.live_precip))
         st.session_state.live_rio = max(0.0, min(10.0, st.session_state.live_rio))
         st.session_state.live_umi = max(30.0, min(100.0, st.session_state.live_umi))
 
-    # Permite ajuste manual ou visualização dos sensores ativos
     c_sens1, c_sens2, c_sens3 = st.columns(3)
     with c_sens1:
         live_p = st.slider("Sensor 1: Chuva Acumulada Atual (mm)", 0.0, 180.0, float(st.session_state.live_precip), step=0.1)
@@ -870,18 +866,14 @@ with tab5:
     with c_sens3:
         live_u = st.slider("Sensor 3: Estação Higrométrica (%)", 30.0, 100.0, float(st.session_state.live_umi), step=1.0)
 
-    # Salvando de volta no Session State
     st.session_state.live_precip, st.session_state.live_rio, st.session_state.live_umi = live_p, live_r, live_u
 
     st.markdown("---")
     st.markdown("### 🧠 Inferência da Enchente com base nos Dados Existentes")
 
-    # MÓDULO MATEMÁTICO: Comparar entrada em tempo real com os registros históricos da IA (Cluster Centroides aproximados)
-    # Procurar o vizinho mais próximo nos dados existentes do dataframe estruturado (Base de Conhecimento)
     df_features = df[["precipitacao", "nivel_rio", "umidade"]].to_numpy()
     ponto_atual = np.array([live_p, live_r, live_u])
     
-    # Distância Euclidiana para achar qual registro histórico mais se assemelha à situação de agora
     distancias = np.linalg.norm(df_features - ponto_atual, axis=1)
     indice_proximo = np.argmin(distancias)
     registro_semelhante = df.iloc[indice_proximo]
@@ -890,7 +882,6 @@ with tab5:
     alerta_gerado = cluster_to_alert_level.get(risco_detectado, 'Verde')
     info_alerta = NIVEIS.get(alerta_gerado, NIVEIS['Verde'])
 
-    # Exibição do Status Consolidado em Tempo Real
     cor_box = cor_map.get(risco_detectado, 'green')
     txt_box = 'black' if cor_box == 'yellow' else 'white'
     
@@ -906,21 +897,16 @@ with tab5:
         """, unsafe_allow_html=True)
     
     with col_status_2:
-        # Apresentar o grau de confiança baseado na distância do padrão mais próximo
         proximidade_score = max(0, min(100, int(100 - (distancias[indice_proximo] * 1.5))))
-        st.metric(label="Aderência com Modelos Anteriores", value=f"{proximidade_score}%", help="O quão parecido o cenário atual é com os registros conhecidos da sua IA.")
+        st.metric(label="Aderência com Modelos Anteriores", value=f"{proximidade_score}%")
         st.caption(f"Registro histórico idêntico identificado em: *{registro_semelhante['local']}*")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Gráfico Comparativo: Onde o ponto de AGORA se encontra em relação às 500 amostras?
     st.write("**Gráfico de Dispersão Espacial (Sua Situação Atual vs. Padrões Históricos)**")
     
-    # Criar DataFrame temporário para plotar o marcador dinâmico em tempo real por cima do histórico
     df_plot_live = df[["precipitacao", "nivel_rio", "cluster_label"]].copy()
     df_plot_live['Tipo'] = 'Histórico (Modelos)'
     
-    # Adicionar o registro ao vivo
     ponto_ao_vivo = pd.DataFrame([{
         "precipitacao": live_p,
         "nivel_rio": live_r,
@@ -929,17 +915,18 @@ with tab5:
     }])
     df_consolidado_grafico = pd.concat([df_plot_live, ponto_ao_vivo], ignore_index=True)
 
+    # --- CORREÇÃO DO ERRO AQUI ---
+    # Usando string de expressão pura do Vega-Lite avaliada em tempo de execução pelo interpretador JS do chart
     grafico_inferencia = alt.Chart(df_consolidado_grafico).mark_circle().encode(
         x=alt.X('precipitacao:Q', title='Precipitação acumulada (mm)'),
         y=alt.Y('nivel_rio:Q', title='Nível da Calha do Rio (m)'),
         color=alt.Color('Tipo:N', scale=alt.Scale(domain=['Histórico (Modelos)', '⚠️ AGORA (Tempo Real)'], range=['#CCCCCC', '#FF0055'])),
-        size=alt.Condition(alt.datum.Tipo == '⚠️ AGORA (Tempo Real)', alt.value(400), alt.value(60)),
+        size=alt.Condition("datum.Tipo == '⚠️ AGORA (Tempo Real)'", alt.value(400), alt.value(60)),
         tooltip=['precipitacao', 'nivel_rio', 'cluster_label']
     ).properties(height=400, width='stretch').configure_axis(grid=True)
     
     st.altair_chart(grafico_inferencia, use_container_width=True)
 
-    # Caso a simulação em tempo real esteja ativada, recarregar automaticamente a página a cada 1.5 segundos
     if simular_ativado:
         time.sleep(1.5)
         st.rerun()
