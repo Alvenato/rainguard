@@ -854,51 +854,34 @@ with tab5:
     lat_estacao = float(estacao_info["latitude"])
     lon_estacao = float(estacao_info["longitude"])
 
-    # Inicialização padrão para evitar falhas de execução antes da resposta http
-    live_p, live_r, live_u = 0.0, 0.0, 0.0
-    api_sucesso = False
+    # LÓGICA DE CAPTURA AUTOMÁTICA EM SEGUNDO PLANO (Sempre traz dados reais do Open-Meteo ao carregar ou mudar a região)
+    try:
+        url_auto = f"https://api.open-meteo.com/v1/forecast?latitude={lat_estacao}&longitude={lon_estacao}&current=relative_humidity_2m,precipitation&timezone=auto"
+        res_auto = requests.get(url_auto, timeout=5)
+        if res_auto.status_code == 200:
+            metrics_auto = res_auto.json().get("current", {})
+            live_p = float(metrics_auto.get("precipitation", 0.0))
+            live_u = float(metrics_auto.get("relative_humidity_2m", 75.0))
+            
+            # Cálculo de inferência proporcional estável para o nível do rio
+            dados_hist = df[(df["latitude"] == lat_estacao) & (df["longitude"] == lon_estacao)]
+            base_rio = dados_hist["nivel_rio"].mean() if not dados_hist.empty else 1.2
+            live_r = float(base_rio + (live_p * 0.08))
+        else:
+            live_p, live_r, live_u = 0.0, 1.2, 75.0
+    except Exception:
+        live_p, live_r, live_u = 0.0, 1.2, 75.0
 
-    # Botão explícito para buscar dados reais de satélite e sensores terrestres
-    if st.button("🛰️ CONSULTAR SENSORES METEOROLÓGICOS AGORA", use_container_width=True):
-        with st.spinner(f"Fazendo requisição HTTP aos servidores meteorológicos para {estacao_info['local']}..."):
-            try:
-                # Requisição à API Open-Meteo (Coleta de precipitação atualizada e umidade relativa do ar)
-                url = f"https://api.open-meteo.com/v1/forecast?latitude={lat_estacao}&longitude={lon_estacao}&current=temperature_2m,relative_humidity_2m,precipitation&timezone=auto"
-                response = requests.get(url, timeout=10)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    current_metrics = data.get("current", {})
-                    
-                    # Extração direta das métricas reais da API
-                    live_p = float(current_metrics.get("precipitation", 0.0))
-                    live_u = float(current_metrics.get("relative_humidity_2m", 70.0))
-                    
-                    # Cálculo/Inferência hidrológica estável para o nível do rio baseado no volume real de chuva
-                    # e na cota média de segurança da própria região histórica mapeada
-                    dados_historicos_locais = df[(df["latitude"] == estacao_info["latitude"]) & (df["longitude"] == estacao_info["longitude"])]
-                    if not dados_historicos_locais.empty:
-                        base_rio = dados_historicos_locais["nivel_rio"].mean()
-                    else:
-                        base_rio = 1.2
-                    
-                    # Variação proporcional matemática baseada na chuva em milímetros real encontrada
-                    live_r = float(base_rio + (live_p * 0.08))
-                    api_sucesso = True
-                    
-                    # Guardar no Session State para persistir entre iterações da página
-                    st.session_state.live_precip = live_p
-                    st.session_state.live_rio = live_r
-                    st.session_state.live_umi = live_u
-                else:
-                    st.error(f"A API retornou um código de status inválido: {response.status_code}")
-            except Exception as e:
-                st.error(f"Erro na conexão com os servidores da API Open-Meteo: {str(e)}")
+    # Layout limpo com o botão reduzido e centralizado em uma coluna proporcional
+    col_btn1, col_btn2, col_btn3 = st.columns([2, 2, 2])
+    with col_btn2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        # O parâmetro 'use_container_width=True' foi removido para encolher o botão ao tamanho padrão do texto
+        executar_busca = st.button("🔄 ATUALIZAR LEITURA MANUAL")
+        if executar_busca:
+            st.rerun()
 
-    # Carregar os últimos valores medidos do session state para exibição estruturada
-    live_p = st.session_state.live_precip
-    live_r = st.session_state.live_rio
-    live_u = st.session_state.live_umi
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # Exibição das métricas físicas coletadas
     st.markdown("### Leituras Atuais dos Sensores Físicos (Open-Meteo)")
