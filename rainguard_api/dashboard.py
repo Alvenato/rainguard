@@ -83,8 +83,36 @@ st.markdown("""
         /* Métricos */
         .stMetric, [data-testid="stMetric"] { border-radius:14px; padding:10px; background: rgba(255,255,255,0.92); box-shadow:0 14px 26px rgba(15,40,75,0.06); color: #000000; }
         
-        /* Botões */
-        .stButton>button, button { border-radius:12px; background-color:#0d3b66; color:white; border:none; padding:10px 14px; }
+        /* --- ESTILIZAÇÃO CUSTOMIZADA DO BOTÃO DE ALERTA (ABA 3) --- */
+        div.stButton > button {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 1.15rem !important;
+            font-weight: 700 !important;
+            padding: 14px 28px !important;
+            border-radius: 12px !important;
+            border: none !important;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+            box-shadow: 0 4px 12px rgba(13, 59, 102, 0.15) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
+            cursor: pointer !important;
+        }
+        
+        /* Efeito Hover Geral */
+        div.stButton > button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 20px rgba(13, 59, 102, 0.25) !important;
+        }
+        
+        /* Efeito Clique */
+        div.stButton > button:active {
+            transform: translateY(1px) !important;
+        }
+        
+        /* Forçar largura máxima em blocos verticais */
+        div[data-testid="stVerticalBlockBorderWrapper"] button {
+            width: 100% !important;
+        }
     </style>
     
     <div class="rainguard-title"><span class="rain-word">RAIN</span><span class="guard-word">GUARD</span></div>
@@ -131,12 +159,12 @@ stats_baixo = len(df[df["cluster_label"] == "Risco Baixo"])
 st.markdown("""
     <div class="stats-container">
         <div class="stat-card" style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);">
-            <div class="stat-label">🔴 Risco Crítico</div>
-            <div class="stat-number">""" + str(stats_critico) + """</div>
+            <div class="stat-label" style="color: white !important;">🔴 Risco Crítico</div>
+            <div class="stat-number" style="color: white !important;">""" + str(stats_critico) + """</div>
         </div>
         <div class="stat-card" style="background: linear-gradient(135deg, #FF9900 0%, #FF6600 100%);">
-            <div class="stat-label">🟠 Risco Alto</div>
-            <div class="stat-number">""" + str(stats_alto) + """</div>
+            <div class="stat-label" style="color: white !important;">🟠 Risco Alto</div>
+            <div class="stat-number" style="color: white !important;">""" + str(stats_alto) + """</div>
         </div>
         <div class="stat-card" style="background: linear-gradient(135deg, #E6BE00 0%, #D4A300 100%); color: black;">
             <div class="stat-label">🟡 Risco Médio</div>
@@ -346,19 +374,19 @@ with tab2:
 
 with tab3:
     st.subheader("🚨 Disparar Alerta via WhatsApp")
-    st.caption("O disparo automático foi desativado. Selecione a região abaixo e clique no botão para efetuar o envio manual imediato.")
+    st.caption("O disparo automático foi desativado. Selecione a região abaixo para efetuar o envio manual imediato.")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.write("**Selecione a Região**")
+        st.write("**Selecione a Região Alvo**")
         
         # Obter regiões mapeadas para alimentar a seleção
         regioes_unicas = df[["local", "latitude", "longitude"]].drop_duplicates().reset_index(drop=True)
         opcoes_regiao = [f"{row['local']} ({row['latitude']:.2f}, {row['longitude']:.2f})" for _, row in regioes_unicas.iterrows()]
         
         indice_regiao = st.selectbox(
-            "Escolha uma região:",
+            "Escolha uma região para notificação:",
             range(len(opcoes_regiao)),
             format_func=lambda x: opcoes_regiao[x],
             key="regiao_select"
@@ -366,11 +394,11 @@ with tab3:
         
         regiao_info = regioes_unicas.iloc[indice_regiao]
         
-        st.write("**Nível de alerta definido automaticamente**")
-        st.caption("O nível do alerta baseia-se na classificação inferida pelo algoritmo K-means.")
+        st.write("**Nível de Alerta Mapeado**")
+        st.caption("Definido de forma inteligente com base no agrupamento do algoritmo estatístico K-means.")
     
     with col2:
-        st.write("**Dados da Região Selecionada**")
+        st.write("**Métricas em Tempo Real**")
         
         regiao_dados = df[
             (df["latitude"] == regiao_info["latitude"]) &
@@ -382,21 +410,23 @@ with tab3:
             alert_level = cluster_to_alert_level.get(row['cluster_label'], 'Verde')
             alert_info = NIVEIS.get(alert_level, NIVEIS['Verde'])
             
-            st.metric("Precipitação", f"{row['precipitacao']:.1f}mm")
-            st.metric("Nível do Rio", f"{row['nivel_rio']:.1f}m")
-            st.metric("Umidade", f"{row['umidade']:.0f}%")
+            # Sub-colunas para métricas limpas e alinhadas
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Precipitação", f"{row['precipitacao']:.1f}mm")
+            m2.metric("Nível do Rio", f"{row['nivel_rio']:.1f}m")
+            m3.metric("Umidade", f"{row['umidade']:.0f}%")
             
-            # Painel visual colorido do nível de risco atualizado
+            # Painel visual colorido do nível de risco mapeado
             bg_color = cor_map.get(row['cluster_label'], 'green')
             text_color = 'black' if bg_color in ('yellow', '#DAA520', '#FFD700', 'lightyellow') else 'white'
             st.markdown(
                 f"""
-                <div style="background: {bg_color}; padding: 12px; border-radius: 8px; color: {text_color}; margin-bottom: 15px;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div style="font-size:28px; font-weight:700;">{alert_info['cor']}</div>
+                <div style="background: {bg_color}; padding: 16px; border-radius: 12px; color: {text_color}; margin-top: 10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05);">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="font-size:32px; font-weight:700; line-height:1;">{alert_info['cor']}</div>
                         <div>
-                            <div style="font-size:18px; font-weight:700;">{alert_level}</div>
-                            <div style="font-size:13px; opacity:0.95;">Risco: {row['cluster_label']} — Ação: {alert_info['acao']}</div>
+                            <div style="font-size:18px; font-weight:800; letter-spacing:0.5px; color: {text_color} !important;">ALERTA {alert_level.upper()}</div>
+                            <div style="font-size:13px; opacity:0.9; font-weight:500; color: {text_color} !important;">Status: {row['cluster_label']} — {alert_info['acao']}</div>
                         </div>
                     </div>
                 </div>
@@ -404,15 +434,34 @@ with tab3:
                 unsafe_allow_html=True
             )
             
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- DISPARO MANUAL ATRAVÉS DE BOTÃO ---
+    # --- MAPEAMENTO E INJEÇÃO CORES DINÂMICAS DO BOTÃO ---
+    btn_color_map = {
+        "Vermelho": {"bg": "#DC3545", "hover": "#B52A37", "text": "#FFFFFF"},
+        "Laranja": {"bg": "#FD7E14", "hover": "#E06608", "text": "#FFFFFF"},
+        "Amarelo": {"bg": "#FFC107", "hover": "#E0A800", "text": "#000000"},
+        "Verde": {"bg": "#28A745", "hover": "#218838", "text": "#FFFFFF"}
+    }
+    
+    colors = btn_color_map.get(alert_level, {"bg": "#0d3b66", "hover": "#1f4e7f", "text": "#FFFFFF"})
+
+    st.markdown(f"""
+        <style>
+        div.stButton > button {{
+            background-color: {colors['bg']} !important;
+            color: {colors['text']} !important;
+        }}
+        div.stButton > button:hover {{
+            background-color: {colors['hover']} !important;
+            color: {colors['text']} !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+    # --- EXECUÇÃO DO DISPARO ---
     if not regiao_dados.empty:
-        row = regiao_dados.iloc[0]
-        alert_level = cluster_to_alert_level.get(row['cluster_label'], 'Verde')
-        
-        # String dinâmica que muda o rótulo conforme seleção da região
-        botao_texto = f"Disparar Alerta {alert_level.upper()} para {row['local']}"
+        botao_texto = f"Disparar Alerta {alert_level.upper()} — Notificar {row['local']}"
         
         if st.button(f"🚀 {botao_texto}", use_container_width=True):
             dados_alerta = {
@@ -421,18 +470,21 @@ with tab3:
                 "umidade": row["umidade"]
             }
             try:
-                with st.spinner("📤 Conectando à API do Twilio e transmitindo mensagens para os destinatários..."):
+                with st.spinner("📤 Conectando à API do Twilio e transmitindo mensagens de contingência..."):
                     mensagem = emitir_alerta(
                         regiao_id=f"{row['local']} ({regiao_info['latitude']:.4f}, {regiao_info['longitude']:.4f})",
                         nivel=alert_level,
                         dados=dados_alerta
                     )
-                st.success(f"✅ Alerta enviado com sucesso para a lista de destinatários configurada!")
-                st.info(f"**Conteúdo da mensagem enviada:**\n\n{mensagem}")
+                st.success(f"✅ Alerta de nível [{alert_level.upper()}] transmitido com sucesso aos canais de emergência!")
+                
+                with st.expander("📄 Visualizar Relatório de Envio (Log)", expanded=True):
+                    st.code(mensagem, language="text")
+                    
             except Exception as e:
-                st.error(f"❌ Erro ao executar o disparo: {str(e)}")
+                st.error(f"❌ Falha crítica ao executar o disparo: {str(e)}")
     else:
-        st.warning("⚠️ Selecione uma região válida para habilitar o botão de disparo.")
+        st.warning("⚠️ Selecione uma região válida para habilitar os protocolos de disparo.")
 
 with tab4:
     st.title("🧾 Créditos")
