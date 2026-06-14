@@ -541,7 +541,7 @@ from src.camada4_alertas.alert_system import emitir_alerta, NIVEIS
 import altair as alt
 import json
 import numpy as np
-import time
+import requests  # Utilizado para buscar os dados reais da API Open-Meteo
 from datetime import date, datetime
 from pathlib import Path
 import sys
@@ -552,14 +552,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Configurar página
 st.set_page_config(page_title="RainGuard", layout="wide")
-
-# Inicializar estados de sessão para simulação de tempo real, se não existirem
-if "live_precip" not in st.session_state:
-    st.session_state.live_precip = 45.0
-if "live_rio" not in st.session_state:
-    st.session_state.live_rio = 2.1
-if "live_umi" not in st.session_state:
-    st.session_state.live_umi = 78.0
 
 # CSS customizado para a interface
 st.markdown("""
@@ -841,35 +833,84 @@ with tab3:
         except Exception as e: st.error(f"Erro: {e}")
 
 # ==========================================
-# ABA: MONITORAMENTO EM TEMPO REAL VS MODELO DE HISTÓRICO
+# ABA: MONITORAMENTO EM TEMPO REAL COM DADOS REAIS (API)
 # ==========================================
 with tab5:
-    st.subheader("🌤️ Telemetria Climática em Tempo Real vs. Inteligência de Modelos")
-    st.caption("Esta tela monitora dados climáticos simulados ao vivo (via sensores IoT) e cruza instantaneamente com a base de conhecimento para classificar o risco.")
+    st.subheader("🌤️ Telemetria Climática Global em Tempo Real (Dados Reais — Open-Meteo)")
+    st.caption("Esta tela realiza chamadas de API web sob demanda para obter leituras atmosféricas verdadeiras e cruza com a inteligência dos 500 registros conhecidos do modelo histórico.")
 
-    simular_ativado = st.checkbox("🔄 Ativar recepção de dados via Sensores IoT (Simulação ao Vivo)", value=False)
-    if simular_ativado:
-        st.session_state.live_precip += np.random.uniform(-1.5, 2.0)
-        st.session_state.live_rio += np.random.uniform(-0.05, 0.08)
-        st.session_state.live_umi += np.random.uniform(-1.0, 1.0)
-        
-        st.session_state.live_precip = max(0.0, min(180.0, st.session_state.live_precip))
-        st.session_state.live_rio = max(0.0, min(10.0, st.session_state.live_rio))
-        st.session_state.live_umi = max(30.0, min(100.0, st.session_state.live_umi))
+    st.write("**Selecione a Região de Monitoramento Ativo:**")
+    regioes_telemetria = df[["local", "latitude", "longitude"]].drop_duplicates().reset_index(drop=True)
+    opcoes_telemetria = [f"{r['local']} (Lat: {r['latitude']:.2f}, Lon: {r['longitude']:.2f})" for _, r in regioes_telemetria.iterrows()]
+    
+    indice_selecionado = st.selectbox(
+        "Estação de Monitoramento Geoespacial:",
+        range(len(opcoes_telemetria)),
+        format_func=lambda x: opcoes_telemetria[x],
+        key="telemetria_select"
+    )
+    
+    estacao_info = regioes_telemetria.iloc[indice_selecionado]
+    lat_estacao = float(estacao_info["latitude"])
+    lon_estacao = float(estacao_info["longitude"])
 
-    c_sens1, c_sens2, c_sens3 = st.columns(3)
-    with c_sens1:
-        live_p = st.slider("Sensor 1: Chuva Acumulada Atual (mm)", 0.0, 180.0, float(st.session_state.live_precip), step=0.1)
-    with c_sens2:
-        live_r = st.slider("Sensor 2: Calha Magnética do Rio (m)", 0.0, 10.0, float(st.session_state.live_rio), step=0.1)
-    with c_sens3:
-        live_u = st.slider("Sensor 3: Estação Higrométrica (%)", 30.0, 100.0, float(st.session_state.live_umi), step=1.0)
+    # Inicialização padrão para evitar falhas de execução antes da resposta http
+    live_p, live_r, live_u = 0.0, 0.0, 0.0
+    api_sucesso = False
 
-    st.session_state.live_precip, st.session_state.live_rio, st.session_state.live_umi = live_p, live_r, live_u
+    # Botão explícito para buscar dados reais de satélite e sensores terrestres
+    if st.button("🛰️ CONSULTAR SENSORES METEOROLÓGICOS AGORA", use_container_width=True):
+        with st.spinner(f"Fazendo requisição HTTP aos servidores meteorológicos para {estacao_info['local']}..."):
+            try:
+                # Requisição à API Open-Meteo (Coleta de precipitação atualizada e umidade relativa do ar)
+                url = f"https://api.open-meteo.com/v1/forecast?latitude={lat_estacao}&longitude={lon_estacao}&current=temperature_2m,relative_humidity_2m,precipitation&timezone=auto"
+                response = requests.get(url, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    current_metrics = data.get("current", {})
+                    
+                    # Extração direta das métricas reais da API
+                    live_p = float(current_metrics.get("precipitation", 0.0))
+                    live_u = float(current_metrics.get("relative_humidity_2m", 70.0))
+                    
+                    # Cálculo/Inferência hidrológica estável para o nível do rio baseado no volume real de chuva
+                    # e na cota média de segurança da própria região histórica mapeada
+                    dados_historicos_locais = df[(df["latitude"] == estacao_info["latitude"]) & (df["longitude"] == estacao_info["longitude"])]
+                    if not dados_historicos_locais.empty:
+                        base_rio = dados_historicos_locais["nivel_rio"].mean()
+                    else:
+                        base_rio = 1.2
+                    
+                    # Variação proporcional matemática baseada na chuva em milímetros real encontrada
+                    live_r = float(base_rio + (live_p * 0.08))
+                    api_sucesso = True
+                    
+                    # Guardar no Session State para persistir entre iterações da página
+                    st.session_state.live_precip = live_p
+                    st.session_state.live_rio = live_r
+                    st.session_state.live_umi = live_u
+                else:
+                    st.error(f"A API retornou um código de status inválido: {response.status_code}")
+            except Exception as e:
+                st.error(f"Erro na conexão com os servidores da API Open-Meteo: {str(e)}")
+
+    # Carregar os últimos valores medidos do session state para exibição estruturada
+    live_p = st.session_state.live_precip
+    live_r = st.session_state.live_rio
+    live_u = st.session_state.live_umi
+
+    # Exibição das métricas físicas coletadas
+    st.markdown("### Leituras Atuais dos Sensores Físicos (Open-Meteo)")
+    m_real1, m_real2, m_real3 = st.columns(3)
+    m_real1.metric("Precipitação Real (API)", f"{live_p:.2f} mm", help="Volume de chuva capturado em tempo real nas estações geográficas.")
+    m_real2.metric("Nível Hidrométrico do Rio (Inferred)", f"{live_r:.2f} m", help="Cota da calha calculada dinamicamente a partir da precipitação real.")
+    m_real3.metric("Umidade Relativa do Ar (API)", f"{int(live_u)}%", help="Percentual de saturação higrométrica atmosférica.")
 
     st.markdown("---")
     st.markdown("### 🧠 Inferência da Enchente com base nos Dados Existentes")
 
+    # MÓDULO DE INFERÊNCIA MATEMÁTICA VIA DISTÂNCIA EUCLIDIANA CONTRA OS 500 REGISTROS HISTÓRICOS
     df_features = df[["precipitacao", "nivel_rio", "umidade"]].to_numpy()
     ponto_atual = np.array([live_p, live_r, live_u])
     
@@ -890,25 +931,20 @@ with tab5:
         st.markdown(f"""
             <div style="background-color: {cor_box}; padding: 25px; border-radius: 15px; color: {txt_box}; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
                 <span style="font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85;">Diagnóstico Inteligente RainGuard</span>
-                <h2 style="color: {txt_box} !important; margin: 8px 0; font-weight: 800; font-size: 2.3rem;">SITUAÇÃO: {risco_detectado.upper()}</h2>
+                <h2 style="color: {txt_box} !important; margin: 8px 0; font-weight: 800; font-size: 2.3rem;">SITUAÇÃO INTERPRETADA: {risco_detectado.upper()}</h2>
                 <p style="font-size: 1.1rem; margin: 0; opacity: 0.95;"><b>Ação Recomendada pelo Histórico:</b> {info_alerta['acao']}</p>
             </div>
         """, unsafe_allow_html=True)
     
     with col_status_2:
         proximidade_score = max(0, min(100, int(100 - (distancias[indice_proximo] * 1.5))))
-        st.metric(label="Aderência com Modelos Anteriores", value=f"{proximidade_score}%")
-        st.caption(f"Registro histórico idêntico identificado em: *{registro_semelhante['local']}*")
+        st.metric(label="Grau de Aderência com Histórico", value=f"{proximidade_score}%")
+        st.caption(f"Cenário mais próximo na base de dados: *{registro_semelhante['local']}*")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.write("**Gráfico de Dispersão Espacial (Sua Situação Atual vs. Padrões Históricos)**")
+    st.write("**Gráfico de Dispersão Espacial (Sua Situação Atual em Tempo Real vs. Padrões Históricos)**")
     
-    # -------------------------------------------------------------
-    # SINTAXE DE CAMADAS ISOLADAS E SEGURAS PARA O VEGA-LITE SCHEMA
-    # -------------------------------------------------------------
-    # Declaramos a altura e propriedades nos eixos base individuais 
-    # ANTES de realizar a concatenação com o operador (+)
-    
+    # Construção robusta e validada contra o esquema do Vega-Lite
     grafico_historico = alt.Chart(df).mark_circle(size=60, color='#CCCCCC').encode(
         x=alt.X('precipitacao:Q', title='Precipitação acumulada (mm)'),
         y=alt.Y('nivel_rio:Q', title='Nível da Calha do Rio (m)'),
@@ -925,16 +961,8 @@ with tab5:
         y='nivel_rio:Q'
     ).properties(height=400)
     
-    # A união das camadas limpas gera o gráfico final estruturado de forma válida
     grafico_final = (grafico_historico + grafico_agora).configure_axis(grid=True)
-    
-    # O Streamlit renderiza perfeitamente a largura responsiva pelo parâmetro nativo abaixo
     st.altair_chart(grafico_final, use_container_width=True)
-    # -------------------------------------------------------------
-
-    if simular_ativado:
-        time.sleep(1.5)
-        st.rerun()
 
 with tab4:
     st.title("🧾 Créditos")
@@ -948,7 +976,7 @@ with tab4:
                 <li><strong>Clusterização:</strong> <code>k-means</code> foi usado para agrupar as regiões em níveis de risco com base em precipitação, umidade e nível do rio.</li>
                 <li><strong>Visualização:</strong> foram gerados mapas interativos e gráficos para mostrar a distribuição de risco e os pontos críticos.</li>
                 <li><strong>Alerta inteligente:</strong> o sistema converte o resultado do clustering em alertas de cor e recomendações de ação.</li>
-                <li><strong>Módulo de Telemetria (Novo):</strong> Compara entradas ao vivo de sensores com a memória de modelos gerados para inferência instantânea.</li>
+                <li><strong>Módulo de Telemetria Real (API):</strong> Efetua conexões http dinâmicas sem chaves de acesso com a rede Open-Meteo para extrair clima real e classificar o risco comparando com os padrões de treinamento.</li>
             </ul>
         </div>
     </div>
