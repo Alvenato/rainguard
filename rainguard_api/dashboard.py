@@ -904,16 +904,16 @@ with tab5:
     st.write("**Gráfico de Dispersão Espacial (Sua Situação Atual vs. Padrões Históricos)**")
     
     # -------------------------------------------------------------
-    # AJUSTE FIEL AO SCHEMA DO VEGA-LITE PARA GRÁFICOS EM CAMADAS
+    # SINTAXE DE CAMADAS ISOLADAS E SEGURAS PARA O VEGA-LITE SCHEMA
     # -------------------------------------------------------------
-    # Removemos a propriedade width='stretch' do gráfico combinado (.properties) 
-    # e deixamos o Streamlit gerenciar a responsividade nativamente.
+    # Declaramos a altura e propriedades nos eixos base individuais 
+    # ANTES de realizar a concatenação com o operador (+)
     
     grafico_historico = alt.Chart(df).mark_circle(size=60, color='#CCCCCC').encode(
         x=alt.X('precipitacao:Q', title='Precipitação acumulada (mm)'),
         y=alt.Y('nivel_rio:Q', title='Nível da Calha do Rio (m)'),
         tooltip=['precipitacao', 'nivel_rio', 'cluster_label']
-    )
+    ).properties(height=400)
     
     df_ponto_hoje = pd.DataFrame([{
         "precipitacao": float(live_p),
@@ -923,14 +923,12 @@ with tab5:
     grafico_agora = alt.Chart(df_ponto_hoje).mark_circle(size=450, color='#FF0055').encode(
         x='precipitacao:Q',
         y='nivel_rio:Q'
-    )
+    ).properties(height=400)
     
-    # .properties() agora recebe apenas parâmetros universais e seguros para LayerChart
-    grafico_final = (grafico_historico + grafico_agora).properties(
-        height=400
-    ).configure_axis(grid=True)
+    # A união das camadas limpas gera o gráfico final estruturado de forma válida
+    grafico_final = (grafico_historico + grafico_agora).configure_axis(grid=True)
     
-    # Passamos use_container_width=True para esticar horizontalmente sem quebrar o json-schema
+    # O Streamlit renderiza perfeitamente a largura responsiva pelo parâmetro nativo abaixo
     st.altair_chart(grafico_final, use_container_width=True)
     # -------------------------------------------------------------
 
