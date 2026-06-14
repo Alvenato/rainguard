@@ -904,33 +904,33 @@ with tab5:
     st.write("**Gráfico de Dispersão Espacial (Sua Situação Atual vs. Padrões Históricos)**")
     
     # -------------------------------------------------------------
-    # SOLUÇÃO DEFINITIVA SEM ERROS DE COMPATIBILIDADE (SINTAXE DE CAMADAS)
+    # AJUSTE FIEL AO SCHEMA DO VEGA-LITE PARA GRÁFICOS EM CAMADAS
     # -------------------------------------------------------------
-    # Camada 1: O histórico completo de 500 registros como pontos cinzentos de fundo
+    # Removemos a propriedade width='stretch' do gráfico combinado (.properties) 
+    # e deixamos o Streamlit gerenciar a responsividade nativamente.
+    
     grafico_historico = alt.Chart(df).mark_circle(size=60, color='#CCCCCC').encode(
         x=alt.X('precipitacao:Q', title='Precipitação acumulada (mm)'),
         y=alt.Y('nivel_rio:Q', title='Nível da Calha do Rio (m)'),
         tooltip=['precipitacao', 'nivel_rio', 'cluster_label']
     )
     
-    # Criamos um DataFrame estrito de apenas 1 linha para o marcador em tempo real
     df_ponto_hoje = pd.DataFrame([{
         "precipitacao": float(live_p),
         "nivel_rio": float(live_r)
     }])
     
-    # Camada 2: O ponto do sensor IoT em tempo real como uma bola vermelha grande em destaque
     grafico_agora = alt.Chart(df_ponto_hoje).mark_circle(size=450, color='#FF0055').encode(
         x='precipitacao:Q',
         y='nivel_rio:Q'
     )
     
-    # Unificamos as camadas através do operador de soma (+) nativo do Altair
+    # .properties() agora recebe apenas parâmetros universais e seguros para LayerChart
     grafico_final = (grafico_historico + grafico_agora).properties(
-        height=400, 
-        width='stretch'
+        height=400
     ).configure_axis(grid=True)
     
+    # Passamos use_container_width=True para esticar horizontalmente sem quebrar o json-schema
     st.altair_chart(grafico_final, use_container_width=True)
     # -------------------------------------------------------------
 
